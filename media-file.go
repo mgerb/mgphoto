@@ -99,7 +99,9 @@ func (m *MediaFile) writeToDestination(dest string, copyDuplicates bool) error {
 
 	createDirIfNotExists(dir)
 
-	err := copyFile(m.path, path.Join(dir, m.name))
+	fullPath := renameIfFileExists(path.Join(dir, m.name))
+
+	err := copyFile(m.path, fullPath)
 
 	if err != nil {
 		log.Println(err)

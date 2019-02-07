@@ -3,9 +3,46 @@ package main
 import (
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
+
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
+func getFileSuffix(n int) string {
+	return "_" + strconv.Itoa(n)
+}
+
+// if file already exists
+// append _1 to the end.
+// Keep incrementing until file
+// does not exist.
+func renameIfFileExists(path string) string {
+	fileSuffix := 1
+	for fileExists(path) {
+		extension := filepath.Ext(path)
+		pathPrefix := path[0 : len(path)-len(extension)]
+
+		previousFileSuffix := getFileSuffix(fileSuffix - 1)
+		if strings.HasSuffix(pathPrefix, previousFileSuffix) {
+			pathPrefix = pathPrefix[0 : len(pathPrefix)-len(previousFileSuffix)]
+		}
+
+		path = pathPrefix + getFileSuffix(fileSuffix) + extension
+		fileSuffix++
+	}
+
+	return path
+}
 
 func createDirIfNotExists(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -45,41 +82,26 @@ func copyFile(src, dest string) error {
 	return nil
 }
 
-// recursively read files in directory
-func readFiles(dir string, processMetaData bool) []*MediaFile {
+// recursively read directory and get all file paths
+func getAllFilePaths(dir string) []string {
 
-	mediaFiles := []*MediaFile{}
+	filePaths := []string{}
 	files, err := ioutil.ReadDir(dir)
 
 	if err != nil {
-		return mediaFiles
+		log.Println(err)
+		return filePaths
 	}
 
 	for _, f := range files {
 
 		if f.IsDir() {
-			mediaFiles = append(mediaFiles, readFiles(path.Join(dir, f.Name()), processMetaData)...)
+			filePaths = append(filePaths, getAllFilePaths(path.Join(dir, f.Name()))...)
 		} else {
 
-			mediaFile := NewMediaFile(path.Join(dir, f.Name()), processMetaData)
-
-			if mediaFile != nil {
-				mediaFiles = append(mediaFiles, mediaFile)
-			}
+			filePaths = append(filePaths, path.Join(dir, f.Name()))
 		}
 	}
 
-	return mediaFiles
-}
-
-func scanMediaDirectory(path string, processMetaData bool) map[[20]byte]*MediaFile {
-	mediaFiles := readFiles(path, processMetaData)
-
-	outputMap := map[[20]byte]*MediaFile{}
-
-	for _, m := range mediaFiles {
-		outputMap[m.sha1] = m
-	}
-
-	return outputMap
+	return filePaths
 }
