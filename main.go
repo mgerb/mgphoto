@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"os"
 )
@@ -14,18 +13,17 @@ var (
 )
 
 func init() {
-
 	if version != "undefined" {
 		println("mgphoto ", version, "\n")
 	}
 
-	outputPtr := flag.String("o", "./output", "Output path - defaults to ./output")
+	outputPtr := flag.String("o", "./photos", "Output path - defaults to ./photos")
 	dupPtr := flag.Bool("d", false, "Copy duplicates to 'duplicates' folder")
 
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		println(errors.New("Invalid arguments - please supply a source directory"))
+		println("Invalid arguments - please supply a source directory")
 		os.Exit(0)
 	}
 
