@@ -91,8 +91,9 @@ func (m *MediaFile) writeToDestination(dest string, copyDuplicates bool) error {
 
 	if m.date != nil {
 		year := m.date.Format("2006")
-		month := m.date.Format("2006-01-02")
-		dir = path.Join(dir, year, month)
+		month := m.date.Format("01")
+		day := m.date.Format("02")
+		dir = path.Join(dir, year, month, day)
 	} else {
 		dir = path.Join(dir, "unknown")
 	}
