@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/sha1"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -94,6 +93,33 @@ func (m *MediaFile) isSidecar() bool {
 	return isSidecar(m.path)
 }
 
+func (m *MediaFile) Info(input ...string) {
+	var wrap []interface{} = make([]interface{}, len(input)+1)
+	wrap[0] = m.path + "\t"
+	for i, d := range input {
+		wrap[i+1] = d
+	}
+	Info.Println(wrap...)
+}
+
+func (m *MediaFile) Warn(input ...string) {
+	var wrap []interface{} = make([]interface{}, len(input)+1)
+	wrap[0] = m.path + "\t"
+	for i, d := range input {
+		wrap[i+1] = d
+	}
+	Warn.Println(wrap...)
+}
+
+func (m *MediaFile) Error(input ...string) {
+	var wrap []interface{} = make([]interface{}, len(input)+1)
+	wrap[0] = m.path + "\t"
+	for i, d := range input {
+		wrap[i+1] = d
+	}
+	Error.Println(wrap)
+}
+
 func (m *MediaFile) processMetaData(file *os.File) {
 	// fmt.Println(m.path)
 
@@ -111,11 +137,12 @@ func (m *MediaFile) processMetaData(file *os.File) {
 
 	// No Exif Data found
 	if d == nil {
+		m.Warn("No EXIF data found, using file mod time")
 		d = m.getFileTime()
 	}
 
 	if d == nil {
-		fmt.Println("unable to find date")
+		m.Error("unable to find date")
 	}
 
 	m.date = d
@@ -273,11 +300,14 @@ func (m *MediaFile) writeToDestination(dest string, copyDuplicates bool) error {
 
 	fullPath := renameIfFileExists(path.Join(dir, m.name))
 
-	err := copyFile(m.path, fullPath)
+	m.Info("copying to\t", fullPath)
+	if !dryRun {
+		err := copyFile(m.path, fullPath)
 
-	if err != nil {
-		log.Println(err)
-		return err
+		if err != nil {
+			m.Error(err.Error())
+			return err
+		}
 	}
 
 	return nil
@@ -304,18 +334,21 @@ func (m *MediaFile) moveToDestination(dest string, original *MediaFile) error {
 	createDirIfNotExists(dir)
 
 	if path.Join(dir, m.name) == m.path && m.sha1 == original.sha1 {
-		fmt.Println(m.path, "is already in the correct location")
+		m.Info("is already in the correct location")
 		return nil
 	}
 
 	fullPath := renameIfFileExists(path.Join(dir, m.name))
 
-	fmt.Println("Moving", m.path, "==>>", fullPath)
-	err := os.Rename(m.path, fullPath)
+	m.Info("Moving to\t", fullPath)
+	if !dryRun {
+		err := os.Rename(m.path, fullPath)
 
-	if err != nil {
-		log.Println(err)
-		return err
+		if err != nil {
+			m.Error(err.Error())
+			return err
+		}
+
 	}
 
 	return nil

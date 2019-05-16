@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -16,6 +17,7 @@ var (
 	copyDuplicates       bool
 	mvDuplicates         bool
 	tinyFiles            bool
+	dryRun               bool
 	logPath              string
 	version              = "undefined"
 	reDateTime           = regexp.MustCompile(`(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})`)
@@ -30,11 +32,12 @@ func init() {
 		println("mgphoto ", version, "\n")
 	}
 
-	outputPtr := flag.String("o", "./photos", "Output path - defaults to ./photos")
-	logPtr := flag.String("l", "./transfer.log", "Log path - defaults to ./transfer.log")
-	dupPtr := flag.Bool("d", false, "Copy duplicates to 'duplicates' folder")
-	mvPtr := flag.Bool("m", false, "Move duplicates to their correct location")
-	tinyPtr := flag.Bool("t", false, "Copy really small images (<5kb)")
+	outputPtr := flag.String("out", "./photos", "Output path - defaults to ./photos")
+	logPtr := flag.String("log", "./transfer.log", "Log path - defaults to ./transfer.log")
+	dupPtr := flag.Bool("copy-dupes", false, "Copy duplicates to 'duplicates' folder")
+	mvPtr := flag.Bool("move-dupes", false, "Move duplicates to their correct location")
+	tinyPtr := flag.Bool("copy-tiny", false, "Copy really small images (<5kb)")
+	dryPtr := flag.Bool("dryrun", false, "Don't actually do anything")
 
 	flag.Parse()
 
@@ -48,19 +51,28 @@ func init() {
 	mvDuplicates = *mvPtr
 	tinyFiles = *tinyPtr
 	logPath = *logPtr
+	dryRun = *dryPtr
+
 	inputPath = flag.Args()[0]
 
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalln("Failed to open log file", output, ":", err)
+		log.Fatalln("Failed to open log file", logPath, ":", err)
 	}
 
-	multiWarn := io.MultiWriter(file, os.Stdout)
-	multiErr := io.MultiWriter(file, os.Stderr)
+	multiWarn := io.MultiWriter(logFile, ioutil.Discard)
+	multiErr := io.MultiWriter(logFile, os.Stderr)
 
-	Info = log.New(logFile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Warn = log.New(multiWarn, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Error = log.New(multiErr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	Info = log.New(logFile, "INFO: \t", log.Ldate|log.Ltime)
+	Warn = log.New(multiWarn, "WARN: \t", log.Ldate|log.Ltime)
+	Error = log.New(multiErr, "ERROR: \t", log.Ldate|log.Ltime|log.Lshortfile)
+	Info.Println("************************************************")
+	if dryRun {
+		Info.Println(" * * * *            DRY RUN             * * * * ")
+	} else {
+		Info.Println(" > > > >            NEW RUN             < < < < ")
+	}
+	Info.Println("************************************************")
 }
 
 func main() {
@@ -76,6 +88,7 @@ func main() {
 	if !tinyFiles {
 		for k, f := range sourceMediaFiles {
 			if f.isPhoto() && f.size < 5000 {
+				f.Info("skipping too small photo")
 				delete(sourceMediaFiles, k)
 			}
 		}
@@ -95,6 +108,7 @@ func main() {
 					dupeDestFiles[k] = destMediaFiles[k]
 					originalMediaFiles[k] = sourceMediaFiles[k]
 				}
+				sourceMediaFiles[k].Info("Duplicate of", destMediaFiles[k].path)
 				delete(sourceMediaFiles, k)
 			}
 		}

@@ -56,8 +56,10 @@ func renameIfFileExists(path string) string {
 }
 
 func createDirIfNotExists(dir string) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		os.MkdirAll(dir, 0755)
+	if !dryRun {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.MkdirAll(dir, 0755)
+		}
 	}
 }
 
@@ -164,7 +166,7 @@ func getAllFilePaths(dir string) []string {
 			if validFileType(fullPath) {
 				filePaths = append(filePaths, path.Join(fullPath))
 			} else {
-				log.Println("skipping", fullPath)
+				Info.Println(fullPath, "\tskipping, unrecognized filetype")
 			}
 		}
 	}
