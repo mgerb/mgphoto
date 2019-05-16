@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"text/tabwriter"
+	"time"
 )
 
 var (
@@ -18,6 +20,7 @@ var (
 	mvDuplicates         bool
 	tinyFiles            bool
 	dryRun               bool
+	analyze              bool
 	logPath              string
 	version              = "undefined"
 	reDateTime           = regexp.MustCompile(`(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})`)
@@ -38,6 +41,7 @@ func init() {
 	mvPtr := flag.Bool("move-dupes", false, "Move duplicates to their correct location")
 	tinyPtr := flag.Bool("copy-tiny", false, "Copy really small images (<5kb)")
 	dryPtr := flag.Bool("dryrun", false, "Don't actually do anything")
+	analyzePtr := flag.Bool("analyze", false, "Track how long operations are taking")
 
 	flag.Parse()
 
@@ -52,20 +56,25 @@ func init() {
 	tinyFiles = *tinyPtr
 	logPath = *logPtr
 	dryRun = *dryPtr
+	analyze = *analyzePtr
 
 	inputPath = flag.Args()[0]
+}
+
+func main() {
 
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalln("Failed to open log file", logPath, ":", err)
 	}
 
-	multiWarn := io.MultiWriter(logFile, ioutil.Discard)
-	multiErr := io.MultiWriter(logFile, os.Stderr)
+	wr := tabwriter.NewWriter(logFile, 10, 8, 3, ' ', 0)
+	multiWarn := io.MultiWriter(wr, ioutil.Discard)
+	multiErr := io.MultiWriter(wr, os.Stderr)
 
-	Info = log.New(logFile, "INFO: \t", log.Ldate|log.Ltime)
-	Warn = log.New(multiWarn, "WARN: \t", log.Ldate|log.Ltime)
-	Error = log.New(multiErr, "ERROR: \t", log.Ldate|log.Ltime|log.Lshortfile)
+	Info = log.New(wr, "INFO:  ", log.Ldate|log.Ltime)
+	Warn = log.New(multiWarn, "WARN:  ", log.Ldate|log.Ltime)
+	Error = log.New(multiErr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 	Info.Println("************************************************")
 	if dryRun {
 		Info.Println(" * * * *            DRY RUN             * * * * ")
@@ -73,9 +82,7 @@ func init() {
 		Info.Println(" > > > >            NEW RUN             < < < < ")
 	}
 	Info.Println("************************************************")
-}
-
-func main() {
+	defer wr.Flush()
 
 	createDirIfNotExists(outputPath)
 
@@ -164,4 +171,9 @@ func getMediaFiles(paths []string, processMetaData bool) map[[20]byte]*MediaFile
 	progressBar.wait()
 
 	return outputMap
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
 }

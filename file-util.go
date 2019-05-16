@@ -166,7 +166,7 @@ func getAllFilePaths(dir string) []string {
 			if validFileType(fullPath) {
 				filePaths = append(filePaths, path.Join(fullPath))
 			} else {
-				Info.Println(fullPath, "\tskipping, unrecognized filetype")
+				Info.Println(fullPath, "\t skipping, unrecognized filetype")
 			}
 		}
 	}

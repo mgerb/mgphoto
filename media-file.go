@@ -47,6 +47,7 @@ func NewMediaFile(path string, processMetaData bool) *MediaFile {
 		return nil
 	}
 
+	startSHA := time.Now()
 	bytes := make([]byte, 4000000)
 
 	// Only read the first 4 MB of large files
@@ -61,6 +62,9 @@ func NewMediaFile(path string, processMetaData bool) *MediaFile {
 			log.Println(err)
 			return nil
 		}
+	}
+	if analyze {
+		timeTrack(startSHA, "SHA Generation")
 	}
 
 	mediaFile := &MediaFile{
@@ -121,6 +125,9 @@ func (m *MediaFile) Error(input ...string) {
 }
 
 func (m *MediaFile) processMetaData(file *os.File) {
+	if analyze {
+		defer timeTrack(time.Now(), "EXIF analysis")
+	}
 	// fmt.Println(m.path)
 
 	var d *time.Time
