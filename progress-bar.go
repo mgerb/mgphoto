@@ -1,10 +1,15 @@
 package main
 
 import (
+	"sync"
 	"time"
 
 	"github.com/vbauerster/mpb"
 	"github.com/vbauerster/mpb/decor"
+)
+
+var (
+	barlock sync.RWMutex
 )
 
 type ProgressBar struct {
@@ -33,7 +38,9 @@ func NewProgressBar(total int) *ProgressBar {
 }
 
 func (p *ProgressBar) increment() {
+	barlock.Lock()
 	p.bar.IncrBy(1, time.Since(p.start))
+	barlock.Unlock()
 }
 
 func (p *ProgressBar) wait() {

@@ -159,8 +159,7 @@ func getMediaFiles(paths []string, processMetaData bool) map[[20]byte]*MediaFile
 		return outputMap
 	}
 
-	// progressBar := NewProgressBar(len(paths))
-
+	progressBar := NewProgressBar(len(paths))
 	for _, path := range paths {
 		wg.Add(1)
 		go func(path string) {
@@ -172,11 +171,11 @@ func getMediaFiles(paths []string, processMetaData bool) map[[20]byte]*MediaFile
 				outputMap[mediaFile.sha1] = mediaFile
 				maplock.Unlock()
 			}
-			// progressBar.increment()
+			progressBar.increment()
 		}(path)
 	}
 	wg.Wait()
-	// progressBar.wait()
+	progressBar.wait()
 
 	return outputMap
 }
