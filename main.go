@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"sync"
 	"text/tabwriter"
 	"time"
 )
@@ -28,6 +29,8 @@ var (
 	Info                 *log.Logger
 	Warn                 *log.Logger
 	Error                *log.Logger
+	wg                   sync.WaitGroup
+	maplock              sync.RWMutex
 )
 
 func init() {
@@ -150,25 +153,30 @@ func main() {
 
 // get media file objects from file path list
 func getMediaFiles(paths []string, processMetaData bool) map[[20]byte]*MediaFile {
-
 	outputMap := map[[20]byte]*MediaFile{}
 
 	if len(paths) < 1 {
 		return outputMap
 	}
 
-	progressBar := NewProgressBar(len(paths))
+	// progressBar := NewProgressBar(len(paths))
 
 	for _, path := range paths {
-		mediaFile := NewMediaFile(path, processMetaData)
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
+			mediaFile := NewMediaFile(path, processMetaData)
 
-		if mediaFile != nil {
-			outputMap[mediaFile.sha1] = mediaFile
-		}
-		progressBar.increment()
+			if mediaFile != nil {
+				maplock.Lock()
+				outputMap[mediaFile.sha1] = mediaFile
+				maplock.Unlock()
+			}
+			// progressBar.increment()
+		}(path)
 	}
-
-	progressBar.wait()
+	wg.Wait()
+	// progressBar.wait()
 
 	return outputMap
 }

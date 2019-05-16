@@ -29,6 +29,10 @@ type MediaFile struct {
 	size     int64
 }
 
+func init() {
+	exif.RegisterParsers(mknote.All...)
+}
+
 // NewMediaFile - generate new file and process meta data
 // returns nil if file cannot be handled
 func NewMediaFile(path string, processMetaData bool) *MediaFile {
@@ -214,8 +218,6 @@ func getTagsViaExifTool(file string) (map[string]string, error) {
 func getExifDate(file *os.File) *time.Time {
 	// make sure file starts at beginning
 	file.Seek(0, 0)
-
-	exif.RegisterParsers(mknote.All...)
 
 	x, err := exif.Decode(file)
 
