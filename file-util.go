@@ -9,6 +9,17 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"gopkg.in/djherbis/times.v1"
+)
+
+var (
+	// This map is used to define extensions to examine
+	knownTypes = map[string][]string{
+		"video":   []string{"mp4", "avi", "m4v", "mov"},
+		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff"},
+		"sidecar": []string{"thm", "xmp", "on1", "lrv", "xml"},
+	}
 )
 
 func fileExists(path string) bool {
@@ -79,7 +90,58 @@ func copyFile(src, dest string) error {
 		return err
 	}
 
+	t, err := times.Stat(src)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	// Keep the original mod time
+	err = os.Chtimes(dest, t.AccessTime(), t.ModTime())
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	return nil
+}
+
+func validFileType(path string) bool {
+	return isPhoto(path) || isVideo(path) || isSidecar(path)
+}
+
+func isPhoto(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["photo"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isVideo(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["video"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isSidecar(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["sidecar"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
 }
 
 // recursively read directory and get all file paths
@@ -95,11 +157,15 @@ func getAllFilePaths(dir string) []string {
 
 	for _, f := range files {
 
+		fullPath := path.Join(dir, f.Name())
 		if f.IsDir() {
-			filePaths = append(filePaths, getAllFilePaths(path.Join(dir, f.Name()))...)
+			filePaths = append(filePaths, getAllFilePaths(fullPath)...)
 		} else {
-
-			filePaths = append(filePaths, path.Join(dir, f.Name()))
+			if validFileType(fullPath) {
+				filePaths = append(filePaths, path.Join(fullPath))
+			} else {
+				log.Println("skipping", fullPath)
+			}
 		}
 	}
 
