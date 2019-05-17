@@ -134,14 +134,21 @@ func (m *MediaFile) processMetaData(file *os.File) {
 	if analyze {
 		defer timeTrack(time.Now(), "EXIF analysis")
 	}
+
+	skipEXIF := false
+	if !tinyFiles {
+		if (m.isPhoto() || m.isVideo()) && m.size < 5000 {
+			skipEXIF = true
+		}
+	}
 	// fmt.Println(m.path)
 
 	var d *time.Time
-	if m.isVideo() {
+	if m.isVideo() && !skipEXIF {
 		d = m.getExifDateExifTool()
 	}
 
-	if m.isPhoto() {
+	if m.isPhoto() && !skipEXIF {
 		d = getExifDate(file)
 		if d == nil {
 			d = m.getExifDateExifTool()

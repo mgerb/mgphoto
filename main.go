@@ -100,7 +100,7 @@ func main() {
 
 	if !tinyFiles {
 		for k, f := range sourceMediaFiles {
-			if f.isPhoto() && f.size < 5000 {
+			if (f.isPhoto() || f.isVideo()) && f.size < 5000 {
 				f.Info("skipping too small photo")
 				delete(sourceMediaFiles, k)
 			}
