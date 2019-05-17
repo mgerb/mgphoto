@@ -17,7 +17,7 @@ var (
 	// This map is used to define extensions to examine
 	knownTypes = map[string][]string{
 		"video":   []string{"mp4", "avi", "m4v", "mov"},
-		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff"},
+		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "dng"},
 		"sidecar": []string{"thm", "xmp", "on1", "lrv", "xml"},
 	}
 )
@@ -169,6 +169,45 @@ func getAllFilePaths(dir string) []string {
 				Info.Println(fullPath, "\t skipping, unrecognized filetype")
 			}
 		}
+	}
+
+	return filePaths
+}
+
+func getFilePathsFromSource(dir string, sourceMedia map[[20]byte]*MediaFile) []string {
+
+	dirlist := make(map[string]struct{})
+
+	for _, med := range sourceMedia {
+		dirlist[med.destinationPath(dir)] = struct{}{}
+	}
+
+	filePaths := []string{}
+	for subdir := range dirlist {
+
+		if _, err := os.Stat(subdir); err == nil { // only process dir if it exists
+
+			files, err := ioutil.ReadDir(subdir)
+
+			if err != nil {
+				log.Println(err)
+				return filePaths
+			}
+
+			for _, f := range files {
+				fullPath := path.Join(subdir, f.Name())
+				if f.IsDir() {
+					filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+				} else {
+					if validFileType(fullPath) {
+						filePaths = append(filePaths, path.Join(fullPath))
+					} else {
+						Info.Println(fullPath, "\t skipping, unrecognized filetype")
+					}
+				}
+			}
+		}
+
 	}
 
 	return filePaths

@@ -22,6 +22,7 @@ var (
 	tinyFiles            bool
 	dryRun               bool
 	analyze              bool
+	fullDestScan         bool
 	logPath              string
 	version              = "undefined"
 	reDateTime           = regexp.MustCompile(`(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})`)
@@ -31,6 +32,7 @@ var (
 	Error                *log.Logger
 	wg                   sync.WaitGroup
 	maplock              sync.RWMutex
+	workercount          int = 100
 )
 
 func init() {
@@ -45,6 +47,7 @@ func init() {
 	tinyPtr := flag.Bool("copy-tiny", false, "Copy really small images (<5kb)")
 	dryPtr := flag.Bool("dryrun", false, "Don't actually do anything")
 	analyzePtr := flag.Bool("analyze", false, "Track how long operations are taking")
+	fullDestPtr := flag.Bool("full-scan", false, "Scan the entire Destination for duplicates")
 
 	flag.Parse()
 
@@ -60,6 +63,7 @@ func init() {
 	logPath = *logPtr
 	dryRun = *dryPtr
 	analyze = *analyzePtr
+	fullDestScan = *fullDestPtr
 
 	inputPath = flag.Args()[0]
 }
@@ -90,7 +94,6 @@ func main() {
 	createDirIfNotExists(outputPath)
 
 	sourceFiles := getAllFilePaths(inputPath)
-	destFiles := getAllFilePaths(outputPath)
 
 	println("Processing source files...")
 	sourceMediaFiles := getMediaFiles(sourceFiles, true)
@@ -102,6 +105,14 @@ func main() {
 				delete(sourceMediaFiles, k)
 			}
 		}
+	}
+
+	var destFiles []string
+
+	if fullDestScan {
+		destFiles = getAllFilePaths(outputPath)
+	} else { // Only get paths from directories we're placing things into
+		destFiles = getFilePathsFromSource(outputPath, sourceMediaFiles)
 	}
 
 	println("Scanning destination for duplicates...")
@@ -154,30 +165,50 @@ func main() {
 // get media file objects from file path list
 func getMediaFiles(paths []string, processMetaData bool) map[[20]byte]*MediaFile {
 	outputMap := map[[20]byte]*MediaFile{}
+	count := len(paths)
 
-	if len(paths) < 1 {
+	if count < 1 {
 		return outputMap
 	}
 
-	progressBar := NewProgressBar(len(paths))
-	for _, path := range paths {
-		wg.Add(1)
-		go func(path string) {
-			defer wg.Done()
-			mediaFile := NewMediaFile(path, processMetaData)
+	progressBar := NewProgressBar(count)
+	jobs := make(chan pathBool, count)
+	results := make(chan *MediaFile, count)
 
-			if mediaFile != nil {
-				maplock.Lock()
-				outputMap[mediaFile.sha1] = mediaFile
-				maplock.Unlock()
-			}
-			progressBar.increment()
-		}(path)
+	for w := 1; w <= workercount; w++ {
+		go worker(jobs, results)
 	}
-	wg.Wait()
+
+	for _, path := range paths {
+		jobs <- pathBool{path: path, processMetaData: processMetaData}
+	}
+	close(jobs)
+
+	for r := 1; r <= count; r++ {
+		mediaFile := <-results
+
+		if mediaFile != nil {
+			maplock.Lock()
+			outputMap[mediaFile.sha1] = mediaFile
+			maplock.Unlock()
+		}
+		progressBar.increment()
+	}
 	progressBar.wait()
 
 	return outputMap
+}
+
+type pathBool struct {
+	path            string
+	processMetaData bool
+}
+
+func worker(jobs <-chan pathBool, results chan<- *MediaFile) {
+	for j := range jobs {
+		mediaFile := NewMediaFile(j.path, j.processMetaData)
+		results <- mediaFile
+	}
 }
 
 func timeTrack(start time.Time, name string) {

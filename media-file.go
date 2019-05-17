@@ -29,6 +29,8 @@ type MediaFile struct {
 	size     int64
 }
 
+var byteMax int64 = 2000000
+
 func init() {
 	exif.RegisterParsers(mknote.All...)
 }
@@ -52,10 +54,10 @@ func NewMediaFile(path string, processMetaData bool) *MediaFile {
 	}
 
 	startSHA := time.Now()
-	bytes := make([]byte, 4000000)
+	bytes := make([]byte, byteMax)
 
-	// Only read the first 4 MB of large files
-	if fi.Size() > 4000000 {
+	// Only read the first X MB of large files
+	if fi.Size() > byteMax {
 		if _, err = io.ReadFull(file, bytes); err != nil {
 			log.Println(err)
 			return nil
