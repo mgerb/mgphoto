@@ -32,7 +32,8 @@ var (
 	Error                *log.Logger
 	wg                   sync.WaitGroup
 	maplock              sync.RWMutex
-	workercount          int = 100
+	workercount          int   = 100
+	minBytes             int64 = 50000
 )
 
 func init() {
@@ -100,7 +101,7 @@ func main() {
 
 	if !tinyFiles {
 		for k, f := range sourceMediaFiles {
-			if (f.isPhoto() || f.isVideo()) && f.size < 5000 {
+			if (f.isPhoto() || f.isVideo()) && f.size < minBytes {
 				f.Info("skipping too small photo")
 				delete(sourceMediaFiles, k)
 			}
@@ -124,13 +125,18 @@ func main() {
 	// if we are not copying and not moving duplicates omit them
 	if !copyDuplicates || mvDuplicates {
 		for k := range sourceMediaFiles {
-			if destMediaFiles[k] != nil {
+			if destMediaFiles[k] != nil { // file exists in src & dest && has same hash (of first 2k bytes)
 				if mvDuplicates {
 					dupeDestFiles[k] = destMediaFiles[k]
 					originalMediaFiles[k] = sourceMediaFiles[k]
 				}
-				sourceMediaFiles[k].Info("Duplicate of", destMediaFiles[k].path)
-				delete(sourceMediaFiles, k)
+				if sourceMediaFiles[k].size > destMediaFiles[k].size { // file in destination may not be complete
+					sourceMediaFiles[k].Info("is larger than duplicate, replacing", destMediaFiles[k].path)
+					sourceMediaFiles[k].replace = true
+				} else {
+					sourceMediaFiles[k].Info("Duplicate of", destMediaFiles[k].path)
+					delete(sourceMediaFiles, k)
+				}
 			}
 		}
 	}

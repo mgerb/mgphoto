@@ -27,6 +27,7 @@ type MediaFile struct {
 	sha1     [20]byte
 	filetype string
 	size     int64
+	replace  bool
 }
 
 var byteMax int64 = 2000000
@@ -74,10 +75,11 @@ func NewMediaFile(path string, processMetaData bool) *MediaFile {
 	}
 
 	mediaFile := &MediaFile{
-		path: path,
-		name: filepath.Base(file.Name()),
-		sha1: sha1.Sum(bytes),
-		size: fi.Size(),
+		path:    path,
+		name:    filepath.Base(file.Name()),
+		sha1:    sha1.Sum(bytes),
+		size:    fi.Size(),
+		replace: false,
 	}
 
 	if processMetaData {
@@ -137,7 +139,7 @@ func (m *MediaFile) processMetaData(file *os.File) {
 
 	skipEXIF := false
 	if !tinyFiles {
-		if (m.isPhoto() || m.isVideo()) && m.size < 5000 {
+		if (m.isPhoto() || m.isVideo()) && m.size < minBytes {
 			skipEXIF = true
 		}
 	}
@@ -157,7 +159,9 @@ func (m *MediaFile) processMetaData(file *os.File) {
 
 	// No Exif Data found
 	if d == nil {
-		m.Warn("No EXIF data found, using file mod time")
+		if m.isPhoto() || m.isVideo() {
+			m.Warn("No EXIF data found, using file mod time")
+		}
 		d = m.getFileTime()
 	}
 
@@ -316,9 +320,15 @@ func (m *MediaFile) writeToDestination(dest string, copyDuplicates bool) error {
 
 	createDirIfNotExists(dir)
 
-	fullPath := renameIfFileExists(path.Join(dir, m.name))
+	var fullPath = path.Join(dir, m.name)
 
-	m.Info("copying to\t", fullPath)
+	if !m.replace {
+		fullPath = renameIfFileExists(path.Join(dir, m.name))
+		m.Info("copying to\t", fullPath)
+	} else {
+		m.Info("replacing\t", fullPath)
+	}
+
 	if !dryRun {
 		err := copyFile(m.path, fullPath)
 

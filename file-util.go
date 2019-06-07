@@ -17,8 +17,9 @@ var (
 	// This map is used to define extensions to examine
 	knownTypes = map[string][]string{
 		"video":   []string{"mp4", "avi", "m4v", "mov"},
-		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "dng"},
-		"sidecar": []string{"thm", "xmp", "on1", "lrv", "xml"},
+		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "tif", "dng"},
+		"sidecar": []string{"xmp", "on1", "xml"},
+		// Don't really need LRV - Low Resolution Video or THM - Thumbnail
 	}
 )
 
@@ -161,7 +162,9 @@ func getAllFilePaths(dir string) []string {
 
 		fullPath := path.Join(dir, f.Name())
 		if f.IsDir() {
-			filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+			if f.Name() != "@eaDir" && f.Name() != "thumbnails" {
+				filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+			}
 		} else {
 			if validFileType(fullPath) {
 				filePaths = append(filePaths, path.Join(fullPath))
@@ -197,7 +200,9 @@ func getFilePathsFromSource(dir string, sourceMedia map[[20]byte]*MediaFile) []s
 			for _, f := range files {
 				fullPath := path.Join(subdir, f.Name())
 				if f.IsDir() {
-					filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+					if f.Name() != "@eaDir" && f.Name() != "thumbnails" {
+						filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+					}
 				} else {
 					if validFileType(fullPath) {
 						filePaths = append(filePaths, path.Join(fullPath))
