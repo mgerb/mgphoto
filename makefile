@@ -15,4 +15,4 @@ windows:
 clean:
 	rm -rf ./dist
 
-all: linux mac windows
+all: linux32 linux64 mac windows
