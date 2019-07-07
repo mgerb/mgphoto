@@ -1,8 +1,11 @@
 VERSION := $(shell git describe --tags)
 
-linux:
-	GOOS=darwin GOARCH=386 go build -o ./dist/mgphoto-linux -ldflags="-X main.version=${VERSION}" ./*.go
+linux32:
+	GOOS=linux GOARCH=386 go build -o ./dist/mgphoto-linux -ldflags="-X main.version=${VERSION}" ./*.go
 
+linux64:
+	GOOS=linux GOARCH=amd64 go build -o ./dist/mgphoto-linux -ldflags="-X main.version=${VERSION}" ./*.go
+	
 mac:
 	GOOS=darwin GOARCH=amd64 go build -o ./dist/mgphoto-mac -ldflags="-X main.version=${VERSION}" ./*.go
 	
