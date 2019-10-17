@@ -16,8 +16,8 @@ import (
 var (
 	// This map is used to define extensions to examine
 	knownTypes = map[string][]string{
-		"video":   []string{"mp4", "avi", "m4v", "mov"},
-		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "tif", "dng"},
+		"video":   []string{"mp4", "avi", "m4v", "mov", "insv"},
+		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "tif", "dng", "insp"},
 		"sidecar": []string{"xmp", "on1", "xml"},
 		// Don't really need LRV - Low Resolution Video or THM - Thumbnail
 	}
