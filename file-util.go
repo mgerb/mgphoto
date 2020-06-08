@@ -9,6 +9,18 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"gopkg.in/djherbis/times.v1"
+)
+
+var (
+	// This map is used to define extensions to examine
+	knownTypes = map[string][]string{
+		"video":   []string{"mp4", "avi", "m4v", "mov", "insv"},
+		"photo":   []string{"heic", "jpeg", "jpg", "raw", "arw", "png", "psd", "gpr", "gif", "tiff", "tif", "dng", "insp"},
+		"sidecar": []string{"xmp", "on1", "xml"},
+		// Don't really need LRV - Low Resolution Video or THM - Thumbnail
+	}
 )
 
 func fileExists(path string) bool {
@@ -45,8 +57,10 @@ func renameIfFileExists(path string) string {
 }
 
 func createDirIfNotExists(dir string) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		os.MkdirAll(dir, 0755)
+	if !dryRun {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.MkdirAll(dir, 0755)
+		}
 	}
 }
 
@@ -79,7 +93,58 @@ func copyFile(src, dest string) error {
 		return err
 	}
 
+	t, err := times.Stat(src)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	// Keep the original mod time
+	err = os.Chtimes(dest, t.AccessTime(), t.ModTime())
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	return nil
+}
+
+func validFileType(path string) bool {
+	return isPhoto(path) || isVideo(path) || isSidecar(path)
+}
+
+func isPhoto(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["photo"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isVideo(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["video"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isSidecar(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	for _, e := range knownTypes["sidecar"] {
+		if ext == "."+e {
+			return true
+		}
+	}
+
+	return false
 }
 
 // recursively read directory and get all file paths
@@ -95,12 +160,59 @@ func getAllFilePaths(dir string) []string {
 
 	for _, f := range files {
 
+		fullPath := path.Join(dir, f.Name())
 		if f.IsDir() {
-			filePaths = append(filePaths, getAllFilePaths(path.Join(dir, f.Name()))...)
+			if f.Name() != "@eaDir" && f.Name() != "thumbnails" {
+				filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+			}
 		} else {
-
-			filePaths = append(filePaths, path.Join(dir, f.Name()))
+			if validFileType(fullPath) {
+				filePaths = append(filePaths, path.Join(fullPath))
+			} else {
+				Info.Println(fullPath, "\t skipping, unrecognized filetype")
+			}
 		}
+	}
+
+	return filePaths
+}
+
+func getFilePathsFromSource(dir string, sourceMedia map[[20]byte]*MediaFile) []string {
+
+	dirlist := make(map[string]struct{})
+
+	for _, med := range sourceMedia {
+		dirlist[med.destinationPath(dir)] = struct{}{}
+	}
+
+	filePaths := []string{}
+	for subdir := range dirlist {
+
+		if _, err := os.Stat(subdir); err == nil { // only process dir if it exists
+
+			files, err := ioutil.ReadDir(subdir)
+
+			if err != nil {
+				log.Println(err)
+				return filePaths
+			}
+
+			for _, f := range files {
+				fullPath := path.Join(subdir, f.Name())
+				if f.IsDir() {
+					if f.Name() != "@eaDir" && f.Name() != "thumbnails" {
+						filePaths = append(filePaths, getAllFilePaths(fullPath)...)
+					}
+				} else {
+					if validFileType(fullPath) {
+						filePaths = append(filePaths, path.Join(fullPath))
+					} else {
+						Info.Println(fullPath, "\t skipping, unrecognized filetype")
+					}
+				}
+			}
+		}
+
 	}
 
 	return filePaths
