@@ -61,6 +61,14 @@
   pruneopts = "UT"
   revision = "41f3e6584952bb034a481797859f6ab34b6803bd"
 
+[[projects]]
+  digest = "1:b7b063b8125b7aeaf179aa4564ba60c896551d702f7c824ace98cc654fc813a0"
+  name = "gopkg.in/djherbis/times.v1"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "847c5208d8924cea0acea3376ff62aede93afe39"
+  version = "v1.2.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -69,6 +77,7 @@
     "github.com/rwcarlsen/goexif/mknote",
     "github.com/vbauerster/mpb",
     "github.com/vbauerster/mpb/decor",
+    "gopkg.in/djherbis/times.v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
