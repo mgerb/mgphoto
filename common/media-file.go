@@ -1,17 +1,13 @@
-package main
+package common
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
@@ -138,12 +134,11 @@ func (m *MediaFile) processMetaData(file *os.File) {
 	}
 
 	skipEXIF := false
-	if !tinyFiles {
+	if ignoreTinyFiles {
 		if (m.isPhoto() || m.isVideo()) && m.size < minBytes {
 			skipEXIF = true
 		}
 	}
-	// fmt.Println(m.path)
 
 	var d *time.Time
 	if m.isVideo() && !skipEXIF {
@@ -193,6 +188,8 @@ func (m *MediaFile) getFileTime() *time.Time {
 }
 
 func (m *MediaFile) getExifDateExifTool() *time.Time {
+	m.Info("Falling back to exiftool")
+
 	tags, err := getTagsViaExifTool(m.path)
 
 	if err != nil {
@@ -202,30 +199,8 @@ func (m *MediaFile) getExifDateExifTool() *time.Time {
 	if err != nil {
 		return nil
 	}
+
 	return &date
-}
-
-func getTagsViaExifTool(file string) (map[string]string, error) {
-	var out bytes.Buffer
-	cmd := exec.Command("exiftool", file)
-
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
-		return nil, err
-	}
-
-	tags := make(map[string]string)
-
-	data := strings.Trim(out.String(), " \r\n")
-	lines := strings.Split(data, "\n")
-
-	for _, line := range lines {
-		k, v := strings.Replace(strings.TrimSpace(line[0:32]), " ", "", -1), strings.TrimSpace(line[33:])
-		// k = normalizeEXIFTag(k)
-		tags[k] = v
-	}
-
-	return tags, nil
 }
 
 func getExifDate(file *os.File) *time.Time {
@@ -245,68 +220,6 @@ func getExifDate(file *os.File) *time.Time {
 	}
 
 	return &t
-}
-
-// getExifCreateDate attempts to get the given file's original creation date
-// from its EXIF tags.
-func getExifCreateDateFromTags(tags map[string]string) (time.Time, error) {
-	// Looking for the first tag that sounds like a date.
-	dateTimeFields := []string{
-		"DateAndTimeOriginal",
-		"DateTimeOriginal",
-		"Date/TimeOriginal",
-		"DateTaken",
-		"CreateDate",
-		"MediaCreateDate",
-		"TrackCreateDate",
-		"ModifyDate",
-		"FileModificationDateTime",
-		"FileAccessDateTime",
-		"EncodedDate",
-		"TaggedDate",
-	}
-
-	toInt := func(s string) (i int) {
-		i, _ = strconv.Atoi(s)
-		return
-	}
-
-	for _, field := range dateTimeFields {
-		taken, ok := tags[field]
-		if !ok {
-			continue
-		}
-
-		all := reDateTime.FindAllStringSubmatch(taken, -1)
-
-		if len(all) < 1 || len(all[0]) < 6 {
-			return time.Time{}, errMissingCreateTime
-		}
-
-		y := toInt(all[0][1])
-		if y == 0 {
-			continue
-		}
-
-		t := time.Date(
-			y,
-			time.Month(toInt(all[0][2])),
-			toInt(all[0][3]),
-			toInt(all[0][4]),
-			toInt(all[0][5]),
-			toInt(all[0][6]),
-			0,
-			time.Local,
-		)
-
-		if t.IsZero() {
-			continue
-		}
-
-		return t, nil
-	}
-
-	return time.Time{}, errMissingCreateTime
 }
 
 func (m *MediaFile) writeToDestination(dest string, copyDuplicates bool) error {

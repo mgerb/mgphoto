@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"io"
@@ -108,7 +108,7 @@ func copyFile(src, dest string) error {
 }
 
 func validFileType(path string) bool {
-	return isPhoto(path) || isVideo(path) || isSidecar(path)
+	return isPhoto(path) || isVideo(path) || (sidecarFiles && isSidecar(path))
 }
 
 func isPhoto(path string) bool {
